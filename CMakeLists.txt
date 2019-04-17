@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.1)
+add_executable(test_deps test_deps.cpp)
+target_link_libraries(test_deps gflags::gflags)
+target_link_libraries(test_deps glog::glog)
+target_link_libraries(test_deps ssl crypto)
