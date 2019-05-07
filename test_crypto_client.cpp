@@ -53,7 +53,7 @@ bool ConnectServer(const char *serverIpv4, uint16_t port, uint32_t *outServer)
     addr.sin_port = htons(port);
 
     int sd = socket(PF_INET, SOCK_STREAM, 0);
-    if (sd != 0)
+    if (sd < 0)
     {
         LOG(ERROR) << "Failed to initialize socket";
         return false;
@@ -62,7 +62,7 @@ bool ConnectServer(const char *serverIpv4, uint16_t port, uint32_t *outServer)
     if (connect(
           sd,
           reinterpret_cast<struct sockaddr*>(&addr),
-          sizeof(addr) != 0))
+          sizeof(addr)) != 0)
     {
         LOG(ERROR) << "Failed to connect server";
         close(sd);
@@ -128,20 +128,22 @@ int main(int argc, char **argv)
 
     ssl = SSL_new(ctx);
     SSL_set_fd(ssl, serverFd);
-    if (SSL_connect(ssl) != 0)
+    if (SSL_connect(ssl) != 1)
     {
         LOG(ERROR) << "Failed to perform SSL handshake";
         ERR_print_errors_fp(stderr);
         goto error;
     }
 
+    /*
     if (!ShowCerts(ssl))
     {
         LOG(ERROR) << "Failed to print peer cert";
         goto error;
     }
+    */
 
-    if (SSL_write(ssl, FLAGS_message.c_str(), strlen(FLAGS_message.c_str())) != 0)
+    if (SSL_write(ssl, FLAGS_message.c_str(), strlen(FLAGS_message.c_str())) < 1)
     {
         LOG(ERROR) << "Failed to send message";
         goto error;
@@ -149,7 +151,7 @@ int main(int argc, char **argv)
 
     memset(message, 0, sizeof(message));
     sslReadResult = SSL_read(ssl, message, sizeof(message));
-    if (sslReadResult < 0)
+    if (sslReadResult < 1)
     {
         LOG(ERROR) << "Failed to read message";
         goto error;
