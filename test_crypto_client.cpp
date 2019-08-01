@@ -17,6 +17,9 @@
 #include  <openssl/ssl.h>
 #include  <openssl/err.h>
 
+DEFINE_string(cert, "", "Certificate PEM");
+DEFINE_string(key, "", "Key PEM");
+DEFINE_string(ca, "", "Certificate Authority");
 DEFINE_string(ipv4, "", "IPv4 address of server");
 DEFINE_int32(port, -1, "Port");
 DEFINE_string(message, "", "Message");
@@ -39,6 +42,40 @@ bool InitCtx(SSL_CTX **outCtx)
     }
 
     return true;
+}
+
+bool LoadClientCerts(SSL_CTX *ctx, const char *certPath, const char *keyPath, const char *caPath)
+{
+  /*
+    if (SSL_CTX_load_verify_locations(ctx, caPath, nullptr) != 1)
+    {
+        LOG(ERROR) << "Failed to load client CA file: " << caPath;
+        return false;
+    }
+
+    if (SSL_CTX_use_certificate_file(ctx, certPath, SSL_FILETYPE_PEM) != 1)
+    {
+        LOG(ERROR) << "Failed to load client cert " << certPath;
+        return false;
+    }
+
+    if (SSL_CTX_use_PrivateKey_file(ctx, keyPath, SSL_FILETYPE_PEM) != 1)
+    {
+        LOG(ERROR) << "Failed to load private key: " << keyPath;
+        return false;
+    }
+
+    if (SSL_CTX_check_private_key(ctx) != 1)
+    {
+        LOG(ERROR) << "Private key does not agree with cert";
+        return false;
+    }
+
+    SSL_CTX_set_mode(ctx, SSL_MODE_AUTO_RETRY);
+    SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, nullptr);
+    SSL_CTX_set_verify_depth(ctx, 1);
+    */
+  return true;
 }
 
 bool ConnectServer(const char *serverIpv4, uint16_t port, uint32_t *outServer)
@@ -105,8 +142,12 @@ int main(int argc, char **argv)
     /* Initializing OpenSSL */
     ERR_load_BIO_strings();
 
+    LOG(INFO) << "Cert: " << FLAGS_cert;
+    LOG(INFO) << "Key: " << FLAGS_key;
+    LOG(INFO) << "CA: " << FLAGS_ca;
     LOG(INFO) << "IPv4: " << FLAGS_ipv4;
     LOG(INFO) << "Port: " << FLAGS_port;
+    LOG(INFO) << "Message: " << FLAGS_message;
 
     SSL_CTX *ctx = nullptr;
     SSL *ssl = nullptr;
@@ -117,6 +158,12 @@ int main(int argc, char **argv)
     if (!InitCtx(&ctx))
     {
         LOG(ERROR) << "Failed to initilize TLSv1.2 context";
+        goto error;
+    }
+
+    if (!LoadClientCerts(ctx, FLAGS_cert.c_str(), FLAGS_key.c_str(), FLAGS_ca.c_str()))
+    {
+        LOG(ERROR) << "Failed to load client certs";
         goto error;
     }
 
