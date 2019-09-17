@@ -46,7 +46,6 @@ bool InitCtx(SSL_CTX **outCtx)
 
 bool LoadClientCerts(SSL_CTX *ctx, const char *certPath, const char *keyPath, const char *caPath)
 {
-  /*
     if (SSL_CTX_load_verify_locations(ctx, caPath, nullptr) != 1)
     {
         LOG(ERROR) << "Failed to load client CA file: " << caPath;
@@ -65,17 +64,20 @@ bool LoadClientCerts(SSL_CTX *ctx, const char *certPath, const char *keyPath, co
         return false;
     }
 
+
     if (SSL_CTX_check_private_key(ctx) != 1)
     {
         LOG(ERROR) << "Private key does not agree with cert";
         return false;
     }
 
+/*
     SSL_CTX_set_mode(ctx, SSL_MODE_AUTO_RETRY);
+*/
     SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, nullptr);
     SSL_CTX_set_verify_depth(ctx, 1);
-    */
-  return true;
+
+    return true;
 }
 
 bool ConnectServer(const char *serverIpv4, uint16_t port, uint32_t *outServer)
@@ -99,7 +101,7 @@ bool ConnectServer(const char *serverIpv4, uint16_t port, uint32_t *outServer)
     if (connect(
           sd,
           reinterpret_cast<struct sockaddr*>(&addr),
-          sizeof(addr)) != 0)
+          sizeof(addr)) < 0)
     {
         LOG(ERROR) << "Failed to connect server";
         close(sd);
@@ -137,6 +139,7 @@ bool ShowCerts(SSL *ssl)
 int main(int argc, char **argv)
 {
     google::ParseCommandLineFlags(&argc, &argv, false);
+    FLAGS_logtostderr = 1;
     google::InitGoogleLogging(argv[0]);
 
     /* Initializing OpenSSL */
@@ -155,11 +158,15 @@ int main(int argc, char **argv)
     char message[100];
     int sslReadResult = -1;
 
+    LOG(INFO) << "Before InitCtx";
+
     if (!InitCtx(&ctx))
     {
         LOG(ERROR) << "Failed to initilize TLSv1.2 context";
         goto error;
     }
+
+    LOG(INFO) << "Before LoadClientCerts";
 
     if (!LoadClientCerts(ctx, FLAGS_cert.c_str(), FLAGS_key.c_str(), FLAGS_ca.c_str()))
     {
@@ -167,11 +174,15 @@ int main(int argc, char **argv)
         goto error;
     }
 
+    LOG(INFO) << "Before ConnectServer";
+
     if (!ConnectServer(FLAGS_message.c_str(), FLAGS_port, &serverFd))
     {
         LOG(ERROR) << "Failed to connect server";
         goto error;
     }
+
+    LOG(INFO) << "Client succeeded in connect() to server";
 
     ssl = SSL_new(ctx);
     SSL_set_fd(ssl, serverFd);
@@ -182,12 +193,16 @@ int main(int argc, char **argv)
         goto error;
     }
 
+    LOG(INFO) << "Client succeeded in SSL_connect()";
+
     /*
     if (!ShowCerts(ssl))
     {
         LOG(ERROR) << "Failed to print peer cert";
         goto error;
     }
+
+    LOG(INFO) << "Client succeeded in ShowCerts()";
     */
 
     if (SSL_write(ssl, FLAGS_message.c_str(), strlen(FLAGS_message.c_str())) < 1)
@@ -195,6 +210,8 @@ int main(int argc, char **argv)
         LOG(ERROR) << "Failed to send message";
         goto error;
     }
+
+    LOG(INFO) << "Client succeeded in write()";
 
     memset(message, 0, sizeof(message));
     sslReadResult = SSL_read(ssl, message, sizeof(message));
