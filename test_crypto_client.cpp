@@ -55,12 +55,16 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
+    LOG(INFO) << "After factory.Create()";
+
     TlsConnection cxn;
     if (!client.Connect(&cxn))
     {
         LOG(ERROR) << "TlsClient failed to connect to server";
         return EXIT_FAILURE;
     }
+
+    LOG(INFO) << "client.Connect()";
 
     if (!SendTlsMessage(&cxn, FLAGS_message))
     {
