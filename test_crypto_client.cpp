@@ -11,6 +11,8 @@
 #include <TlsConnection.h>
 #include <TlsUtilities.h>
 
+#include <test.pb.h>
+
 DEFINE_string(cert, "", "Certificate PEM");
 DEFINE_string(key, "", "Key PEM");
 DEFINE_string(ca, "", "Certificate Authority");
@@ -21,6 +23,7 @@ DEFINE_string(message, "", "Message");
 using network::TlsClientFactory;
 using network::TlsClient;
 using network::TlsConnection;
+using network::ProtobufMessageHeader;
 
 int main(int argc, char **argv)
 {
@@ -35,11 +38,7 @@ int main(int argc, char **argv)
     LOG(INFO) << "Port: " << FLAGS_port;
     LOG(INFO) << "Message: " << FLAGS_message;
 
-    /* Initializing OpenSSL */
-    ERR_load_BIO_strings();
-    OpenSSL_add_all_algorithms();
-    SSL_load_error_strings();
-
+    network::InitOpenSslForProcess();
     TlsClient client;
     TlsClientFactory factory;
 
@@ -66,27 +65,46 @@ int main(int argc, char **argv)
 
     LOG(INFO) << "client.Connect()";
 
-    if (!SendTlsMessage(&cxn, FLAGS_message))
+    test_message::MessageType basic_str_type = test_message::MessageType::BASIC_STRING;
+    test_message::BasicStringMsg basic_str;
+    basic_str.set_str(FLAGS_message);
+
+    LOG(INFO) << "BasicStringMsg.str: " << basic_str.str();
+
+    bool cxn_closed = false;
+    if (!SendTlsProtobufMessage(
+            &cxn,
+            static_cast<uint8_t>(basic_str_type),
+            &basic_str,
+            &cxn_closed))
     {
-        LOG(ERROR) << "Failed to send message to TLS server: " << FLAGS_message;
+        LOG(ERROR) << "Failed to send TLS protobuf message";
         return EXIT_FAILURE;
     }
 
     LOG(INFO) << "Sent message to TLS server!";
 
-    uint8_t read_buffer[256];
-    std::string server_message;
-    if (!ReadTlsMessage(
-          &cxn,
-          read_buffer,
-          sizeof(read_buffer),
-          &server_message))
+    ProtobufMessageHeader header;
+    if (!ReadTlsProtobufMessageHeader(&cxn, &header))
     {
-        LOG(ERROR) << "Failed to read TLS message from server: " << server_message;
+        LOG(ERROR) << "Failed to read TLS protobuf header";
         return EXIT_FAILURE;
     }
 
-    LOG(INFO) << "Received message from TLS server: " << server_message;
+    test_message::BasicStringMsg msg;
+    auto buffer = std::make_unique<uint8_t[]>(header.size);
+
+    if (!ReadTlsProtobufMessageBody(
+            &cxn,
+            buffer.get(),
+            header.size,
+            &msg)) 
+    {
+        LOG(ERROR) << "Failed to read TLS protobuf message body";
+        return EXIT_FAILURE;
+    }
+
+    LOG(INFO) << "Message from server: " << msg.str();
 
     return EXIT_SUCCESS;
 }
