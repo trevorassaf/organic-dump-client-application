@@ -6,6 +6,7 @@
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 
+#include <NetworkUtilities.h>
 #include <TlsClientFactory.h>
 #include <TlsClient.h>
 #include <TlsConnection.h>
@@ -20,10 +21,11 @@ DEFINE_string(ipv4, "", "IPv4 address of server");
 DEFINE_int32(port, -1, "Port");
 DEFINE_string(message, "", "Message");
 
+using network::ProtobufMessageHeader;
 using network::TlsClientFactory;
 using network::TlsClient;
 using network::TlsConnection;
-using network::ProtobufMessageHeader;
+using network::WaitPolicy;
 
 int main(int argc, char **argv)
 {
@@ -38,7 +40,12 @@ int main(int argc, char **argv)
     LOG(INFO) << "Port: " << FLAGS_port;
     LOG(INFO) << "Message: " << FLAGS_message;
 
-    network::InitOpenSslForProcess();
+    //network::InitOpenSslForProcess();
+    SSL_library_init();
+    OpenSSL_add_all_algorithms();
+    SSL_load_error_strings();
+    ERR_load_BIO_strings();
+
     TlsClient client;
     TlsClientFactory factory;
 
@@ -48,6 +55,7 @@ int main(int argc, char **argv)
         FLAGS_cert,
         FLAGS_key,
         FLAGS_ca,
+        WaitPolicy::BLOCKING,
         &client))
     {
         LOG(ERROR) << "Failed to create TlsClient";

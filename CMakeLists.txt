@@ -7,9 +7,21 @@ include_directories(
   ../../../external/boringssl/repo/include
 )
 
-add_executable(test_crypto_client test_crypto_client.cpp)
+add_executable(test_crypto_client examples/test_crypto_client.cpp)
 target_link_libraries(test_crypto_client gflags::gflags)
 target_link_libraries(test_crypto_client glog::glog)
 target_link_libraries(test_crypto_client ssl crypto)
 target_link_libraries(test_crypto_client organic_dump_network)
 target_link_libraries(test_crypto_client test_proto)
+
+add_executable(organic_dump_client
+  src/main.cpp
+  src/Client.cpp
+  src/CliConfig.cpp
+  src/ProtobufServer.cpp)
+
+target_link_libraries(organic_dump_client gflags::gflags)
+target_link_libraries(organic_dump_client glog::glog)
+target_link_libraries(organic_dump_client ssl crypto)
+target_link_libraries(organic_dump_client organic_dump_network)
+target_link_libraries(organic_dump_client organic_dump_proto)
