@@ -19,6 +19,8 @@ const std::unordered_map<std::string, MessageType> SERVER_ACTION_MAP =
 {
   {"register_rpi", MessageType::REGISTER_RPI},
   {"register_soil_moisture_sensor", MessageType::REGISTER_SOIL_MOISTURE_SENSOR},
+  {"set_peripheral_ownership", MessageType::UPDATE_PERIPHERAL_OWNERSHIP},
+  {"send_soil_moisture_measurement", MessageType::SEND_SOIL_MOISTURE_MEASUREMENT},
 };
 
 bool FailUnsetCliInt(const char *param, int32_t port)
@@ -87,13 +89,13 @@ DEFINE_int32(id, UNSET_CLI_INT, "Entity id");
 DEFINE_int32(parent_id, UNSET_CLI_INT, "Parent entity id");
 DEFINE_double(floor, UNSET_CLI_DOUBLE, "Floor of sensor");
 DEFINE_double(ceiling, UNSET_CLI_DOUBLE, "Ceiling of sensor");
+DEFINE_double(measurement, UNSET_CLI_DOUBLE, "Measurement for sensors");
 
 DEFINE_validator(ipv4, CheckNonEmptyString);
 DEFINE_validator(port, FailUnsetCliInt);
 DEFINE_validator(cert, CheckFileExists);
 DEFINE_validator(key, CheckFileExists);
 DEFINE_validator(ca, CheckFileExists);
-DEFINE_validator(action, CheckNonEmptyString);
 } // namespace
 
 namespace organicdump
@@ -108,7 +110,8 @@ bool CliConfig::Parse(int argc, char **argv, CliConfig *out_config)
   google::ParseCommandLineFlags(&argc, &argv, false);
 
   MessageType action;
-  if (!ParseAction(FLAGS_action, &action))
+  bool has_action = FLAGS_action != "";
+  if (has_action && !ParseAction(FLAGS_action, &action))
   {
     LOG(ERROR) << "Failed to parse action";
     return false;
@@ -120,13 +123,15 @@ bool CliConfig::Parse(int argc, char **argv, CliConfig *out_config)
       FLAGS_cert,
       FLAGS_key,
       FLAGS_ca,
+      has_action,
       action,
       FLAGS_name,
       FLAGS_location,
       FLAGS_id,
       FLAGS_parent_id,
       FLAGS_floor,
-      FLAGS_ceiling};
+      FLAGS_ceiling,
+      FLAGS_measurement};
 
   return true; 
 }
@@ -139,25 +144,29 @@ CliConfig::CliConfig(
     std::string cert_file,
     std::string key_file,
     std::string ca_file,
+    bool has_action,
     MessageType server_action,
     std::string name,
     std::string location,
     int id,
     int parent_id,
     double floor,
-    double ceiling)
+    double ceiling,
+    double measurement)
   : ipv4_{std::move(ipv4)},
     port_{port},
     cert_file_{std::move(cert_file)},
     key_file_{std::move(key_file)},
     ca_file_{std::move(ca_file)},
+    has_action_{has_action},
     server_action_{server_action},
     name_{std::move(name)},
     location_{std::move(location)},
     id_{id},
     parent_id_{parent_id},
     floor_{floor},
-    ceiling_{ceiling}
+    ceiling_{ceiling},
+    measurement_{measurement}
 {}
 
 const std::string& CliConfig::GetIpv4() const
@@ -183,6 +192,11 @@ const std::string& CliConfig::GetKeyFile() const
 const std::string& CliConfig::GetCaFile() const
 {
   return ca_file_;
+}
+
+bool CliConfig::HasAction() const
+{
+  return has_action_;
 }
 
 MessageType CliConfig::GetServerAction() const
@@ -250,6 +264,16 @@ bool CliConfig::HasCeiling() const
 double CliConfig::GetCeiling() const
 {
   return ceiling_;
+}
+
+bool CliConfig::HasMeasurement() const
+{
+  return IsCliDoubleSet(measurement_);
+}
+
+double CliConfig::GetMeasurement() const
+{
+  return measurement_;
 }
 
 }; // namespace organicdump

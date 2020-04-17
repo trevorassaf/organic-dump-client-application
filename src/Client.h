@@ -39,7 +39,8 @@ public:
       double floor,
       double ceiling,
       size_t *out_peripheral_id);
-  //bool SetPeripheralParent(size_t peripheral_id, size_t rpi_id);
+  bool SetPeripheralParent(size_t peripheral_id, size_t rpi_id);
+  bool SendSoilMoistureMeasurement(size_t sensor_id, double measurement);
 
 private:
   bool SendHello();

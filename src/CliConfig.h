@@ -24,19 +24,22 @@ public:
       std::string cert_file,
       std::string key_file,
       std::string ca_file,
+      bool has_action,
       organicdump_proto::MessageType server_action,
       std::string name,
       std::string location,
       int id,
       int parent_id,
       double floor,
-      double ceiling);
+      double ceiling,
+      double measurement);
 
   const std::string& GetIpv4() const;
   int32_t GetPort() const;
   const std::string& GetCertFile() const;
   const std::string& GetKeyFile() const;
   const std::string& GetCaFile() const;
+  bool HasAction() const;
   organicdump_proto::MessageType GetServerAction() const;
   bool HasName() const;
   const std::string &GetName() const;
@@ -50,6 +53,8 @@ public:
   double GetFloor() const;
   bool HasCeiling() const;
   double GetCeiling() const;
+  bool HasMeasurement() const;
+  double GetMeasurement() const;
 
 private:
   std::string ipv4_;
@@ -57,6 +62,7 @@ private:
   std::string cert_file_;
   std::string key_file_;
   std::string ca_file_;
+  bool has_action_;
   organicdump_proto::MessageType server_action_;
   std::string name_;
   std::string location_;
@@ -64,6 +70,7 @@ private:
   int parent_id_;
   double floor_;
   double ceiling_;
+  double measurement_;
 };
 
 }; // namespace organicdump

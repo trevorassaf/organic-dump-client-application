@@ -22,6 +22,7 @@ using organicdump_proto::MessageType;
 using organicdump_proto::PeripheralMeta;
 using organicdump_proto::RegisterRpi;
 using organicdump_proto::RegisterSoilMoistureSensor;
+using organicdump_proto::UpdatePeripheralOwnership;
 using network::WaitPolicy;
 using network::TlsClient;
 using network::TlsClientFactory;
@@ -168,11 +169,52 @@ bool Client::SendRegisterSoilMoistureSensor(
   return true;
 }
 
-/*
 bool Client::SetPeripheralParent(size_t peripheral_id, size_t rpi_id)
 {
+  UpdatePeripheralOwnership update_req;
+  update_req.set_peripheral_id(peripheral_id);
+  update_req.set_rpi_id(rpi_id);
+  update_req.set_orphan_peripheral(false);
+  OrganicDumpProtoMessage msg{std::move(update_req)};
+
+  if (!server_.Write(&msg))
+  {
+    LOG(ERROR) << "Failed to send UPDATE_PERIPHERAL_OWNERSHIP message";
+    return false;
+  }
+
+  if (!HandleBasicResponse())
+  {
+    LOG(ERROR) << "Failed to read BASIC_RESPONSE for UPDATE_PERIPHERAL_OWNERSHIP";
+    return false;
+  }
+
+  return true;
 }
-*/
+
+bool Client::SendSoilMoistureMeasurement(size_t sensor_id, double measurement)
+{
+  organicdump_proto::SendSoilMoistureMeasurement req;
+  req.set_sensor_id(sensor_id);
+  req.set_value(measurement);
+  OrganicDumpProtoMessage msg{std::move(req)};
+
+  if (!server_.Write(&msg))
+  {
+    LOG(ERROR) << "Failed to send SEND_SOIL_MOISTURE_MEASUREMENT message";
+    return false;
+  }
+
+  size_t measurement_id;
+  if (!HandleBasicResponse(&measurement_id))
+  {
+    LOG(ERROR) << "Failed to read BASIC_RESPONSE for UPDATE_PERIPHERAL_OWNERSHIP";
+    return false;
+  }
+
+  LOG(INFO) << "Id of soil moisture measurement is " << measurement_id;
+  return true;
+}
 
 bool Client::SendHello()
 {
@@ -211,7 +253,7 @@ bool Client::HandleBasicResponse(
   }
 
   const BasicResponse &basic_response = resp.basic_response;
-  if (!basic_response.has_id())
+  if (out_id && !basic_response.has_id())
   {
     LOG(ERROR) << "BASIC_RESPONSE message is missing its |id| field";
     return false;

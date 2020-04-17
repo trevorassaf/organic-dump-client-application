@@ -16,10 +16,20 @@
 
 #include "organic_dump.pb.h"
 
+#include "I2c/I2cException.h"
+#include "I2c/I2cClient.h"
+#include "I2c/RpiI2cContext.h"
+#include "System/RpiSystemContext.h"
+
 namespace
 {
 using organicdump::Client;
 using organicdump::CliConfig;
+
+using I2c::I2cException;
+using I2c::I2cClient;
+using I2c::RpiI2cContext;
+using System::RpiSystemContext;
 
 void InitLibraries(const char *app_name)
 {
@@ -51,7 +61,6 @@ bool PerformServerAction(
           config.GetName(),
           config.GetLocation(),
           &id);
-      break;
 
     case organicdump_proto::MessageType::REGISTER_SOIL_MOISTURE_SENSOR:
       assert(config.HasName());
@@ -65,7 +74,22 @@ bool PerformServerAction(
           config.GetFloor(),
           config.GetCeiling(),
           &id);
-      break;
+
+    case organicdump_proto::MessageType::UPDATE_PERIPHERAL_OWNERSHIP:
+      assert(config.HasId());
+      assert(config.HasParentId());
+
+      return client->SetPeripheralParent(
+          config.GetId(),
+          config.GetParentId());
+
+    case organicdump_proto::MessageType::SEND_SOIL_MOISTURE_MEASUREMENT:
+      assert(config.HasId());
+      assert(config.HasMeasurement());
+
+      return client->SendSoilMoistureMeasurement(
+          config.GetId(),
+          config.GetMeasurement());
 
     // TODO(bozkurtus): add more server action handlers
     default:
@@ -78,6 +102,10 @@ bool PerformServerAction(
 
 int main(int argc, char **argv)
 {
+  // Run I2C Program to query soil moisture sensor
+  RpiSystemContext rpiSystemContext;
+  RpiI2cContext rpiI2cContext{&rpiSystemContext};
+  
   CliConfig config;
   if (!CliConfig::Parse(argc, argv, &config))
   {
