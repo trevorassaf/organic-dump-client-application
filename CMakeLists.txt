@@ -6,6 +6,7 @@ include_directories(
   ../../gpio14/repo/include
   ../../../external/protobuf/repo/src
   ../../../external/boringssl/repo/include
+  ../../../external/jsoncpp/repo/include
 )
 
 add_executable(test_crypto_client examples/test_crypto_client.cpp)
@@ -41,3 +42,4 @@ target_link_libraries(organic_dump_pot_monitor_client ssl crypto)
 target_link_libraries(organic_dump_pot_monitor_client organic_dump_network)
 target_link_libraries(organic_dump_pot_monitor_client organic_dump_proto)
 target_link_libraries(organic_dump_pot_monitor_client gpio14)
+target_link_libraries(organic_dump_pot_monitor_client jsoncpp_lib)

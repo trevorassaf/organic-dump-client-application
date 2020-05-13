@@ -1,7 +1,9 @@
 #include <cassert>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <memory>
+#include <streambuf>
 #include <thread>
 #include <utility>
 
@@ -11,6 +13,7 @@
 
 #include <gflags/gflags.h>
 #include <glog/logging.h>
+#include <json/json.h>
 
 #include "Client.h"
 #include "CliConfig.h"
@@ -41,14 +44,9 @@ using organicdump::Client;
 const std::chrono::seconds SAMPLE_PERIOD{600};
 
 constexpr size_t I2C_ADC_SLAVE_ID = 0x49;
-
-const std::unordered_map<Ads1115Channel, size_t> kChannelToClientTable =
-{
-  {Ads1115Channel::CHANNEL_0, 1},
-  {Ads1115Channel::CHANNEL_1, 2},
-  {Ads1115Channel::CHANNEL_2, 3},
-  {Ads1115Channel::CHANNEL_3, 4},
-};
+constexpr size_t SOIL_MOISTURE_SENSOR_COUNT = 3;
+constexpr const char *RPI_ID_JSON_NAME = "rpi-id";
+constexpr const char *SOIL_MOISTURE_SENSOR_IDS = "soil-moisture-sensor-ids";
 
 void InitLibraries(const char *app_name)
 {
@@ -63,16 +61,15 @@ void InitLibraries(const char *app_name)
 bool MeasureSoilMoisture(
     Client *client,
     I2cClient *i2c,
-    uint16_t *out_reading)
+    const std::unordered_map<Ads1115Channel, size_t> &channel_to_sensor_table)
 {
   assert(client);
   assert(i2c);
-  assert(out_reading);
 
   Ads1115 ads1115{i2c};
   uint16_t reading;
 
-  for (const auto &entry : kChannelToClientTable)
+  for (const auto &entry : channel_to_sensor_table)
   {
     if (!ads1115.Read(entry.first, &reading))
     {
@@ -93,6 +90,38 @@ bool MeasureSoilMoisture(
   return true;
 }
 
+bool ParseSoilMoistureSensorIds(
+    const std::string &config_path,
+    size_t *raspberry_pi_id,
+    std::vector<size_t> *out_soil_moisture_ids) {
+  assert(out_soil_moisture_ids);
+
+  std::ifstream json_file{config_path};
+  if (!json_file.is_open()) {
+    LOG(ERROR) << "Failed to open json config file";
+    return false;
+  }
+
+  std::string json_file_str(
+      (std::istreambuf_iterator<char>(json_file)),
+      std::istreambuf_iterator<char>());
+
+  Json::Value root;
+  Json::Reader reader;
+  reader.parse(json_file_str, root);
+
+  *raspberry_pi_id = root[RPI_ID_JSON_NAME].asUInt64();
+  Json::Value json_soil_moisture_sensor_ids = root[SOIL_MOISTURE_SENSOR_IDS];
+  out_soil_moisture_ids->clear();
+  for (size_t i = 0; i < json_soil_moisture_sensor_ids.size(); i++)
+  {
+    out_soil_moisture_ids->push_back(
+        json_soil_moisture_sensor_ids[static_cast<int>(i)].asUInt64());
+  }
+
+  return true;
+}
+
 } // anonymous namespace
 
 int main(int argc, char **argv)
@@ -105,6 +134,34 @@ int main(int argc, char **argv)
   }
 
   InitLibraries(argv[0]);
+
+  assert(config.HasConfigFile());
+
+  size_t raspberry_pi_id;
+  std::vector<size_t> soil_moisture_ids;
+
+  if (!ParseSoilMoistureSensorIds(
+        config.GetConfigFile(),
+        &raspberry_pi_id,
+        &soil_moisture_ids))
+  {
+    LOG(ERROR) << "Failed to parse soil moisture sensor ids";
+    return false;
+  }
+
+  LOG(ERROR) << "Raspberry Pi Id: " << raspberry_pi_id;
+  for (size_t i = 0; i < soil_moisture_ids.size(); ++i)
+  {
+    LOG(ERROR) << "Soil moisture sensor[" << i << "]: " << soil_moisture_ids.at(i);
+  }
+
+  assert(soil_moisture_ids.size() == SOIL_MOISTURE_SENSOR_COUNT);
+  std::unordered_map<Ads1115Channel, size_t> channel_to_sensor_table =
+  {
+    {Ads1115Channel::CHANNEL_0, soil_moisture_ids.at(0)},
+    {Ads1115Channel::CHANNEL_1, soil_moisture_ids.at(1)},
+    {Ads1115Channel::CHANNEL_2, soil_moisture_ids.at(2)},
+  };
 
   Client client;
   if (!Client::Create(
@@ -127,10 +184,7 @@ int main(int argc, char **argv)
   while (true)
   {
     uint16_t soil_moisture_reading;
-    if (!MeasureSoilMoisture(
-            &client,
-            i2c,
-            &soil_moisture_reading))
+    if (!MeasureSoilMoisture(&client, i2c, channel_to_sensor_table))
     {
       LOG(ERROR) << "Failed to take soil moisture sensor reading";
       return EXIT_FAILURE;

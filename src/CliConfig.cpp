@@ -90,6 +90,7 @@ DEFINE_int32(parent_id, UNSET_CLI_INT, "Parent entity id");
 DEFINE_double(floor, UNSET_CLI_DOUBLE, "Floor of sensor");
 DEFINE_double(ceiling, UNSET_CLI_DOUBLE, "Ceiling of sensor");
 DEFINE_double(measurement, UNSET_CLI_DOUBLE, "Measurement for sensors");
+DEFINE_string(config_file, "", "Config file path");
 
 DEFINE_validator(ipv4, CheckNonEmptyString);
 DEFINE_validator(port, FailUnsetCliInt);
@@ -103,8 +104,6 @@ namespace organicdump
 
 bool CliConfig::Parse(int argc, char **argv, CliConfig *out_config)
 {
-  std::cout << "bozkutus -- CliConfig::Parse() -- call" << std::endl;
-
   // Force glog to write to stderr
   FLAGS_logtostderr = 1;
   google::ParseCommandLineFlags(&argc, &argv, false);
@@ -131,7 +130,8 @@ bool CliConfig::Parse(int argc, char **argv, CliConfig *out_config)
       FLAGS_parent_id,
       FLAGS_floor,
       FLAGS_ceiling,
-      FLAGS_measurement};
+      FLAGS_measurement,
+      FLAGS_config_file};
 
   return true; 
 }
@@ -152,7 +152,8 @@ CliConfig::CliConfig(
     int parent_id,
     double floor,
     double ceiling,
-    double measurement)
+    double measurement,
+    std::string config_file)
   : ipv4_{std::move(ipv4)},
     port_{port},
     cert_file_{std::move(cert_file)},
@@ -166,7 +167,8 @@ CliConfig::CliConfig(
     parent_id_{parent_id},
     floor_{floor},
     ceiling_{ceiling},
-    measurement_{measurement}
+    measurement_{measurement},
+    config_file_{std::move(config_file)}
 {}
 
 const std::string& CliConfig::GetIpv4() const
@@ -274,6 +276,16 @@ bool CliConfig::HasMeasurement() const
 double CliConfig::GetMeasurement() const
 {
   return measurement_;
+}
+
+bool CliConfig::HasConfigFile() const
+{
+  return !config_file_.empty();
+}
+
+const std::string &CliConfig::GetConfigFile() const
+{
+  return config_file_;
 }
 
 }; // namespace organicdump

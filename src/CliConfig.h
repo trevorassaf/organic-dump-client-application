@@ -32,7 +32,8 @@ public:
       int parent_id,
       double floor,
       double ceiling,
-      double measurement);
+      double measurement,
+      std::string config_file);
 
   const std::string& GetIpv4() const;
   int32_t GetPort() const;
@@ -55,6 +56,8 @@ public:
   double GetCeiling() const;
   bool HasMeasurement() const;
   double GetMeasurement() const;
+  bool HasConfigFile() const;
+  const std::string &GetConfigFile() const;
 
 private:
   std::string ipv4_;
@@ -71,6 +74,7 @@ private:
   double floor_;
   double ceiling_;
   double measurement_;
+  std::string config_file_;
 };
 
 }; // namespace organicdump
