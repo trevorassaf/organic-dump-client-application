@@ -109,8 +109,6 @@ bool Client::SendRegisterRpi(
 {
   assert(out_rpi_id);
 
-  LOG(ERROR) << "bozkurtus -- Client::RegisterRpi() -- call";
-
   organicdump_proto::RegisterRpi register_rpi_msg;
   register_rpi_msg.set_name(std::move(name));
   register_rpi_msg.set_location(std::move(location));
@@ -129,7 +127,6 @@ bool Client::SendRegisterRpi(
     return false;
   }
 
-  LOG(ERROR) << "bozkurtus -- Client::RegisterRpi() -- end";
   return true;
 }
 
@@ -221,8 +218,6 @@ bool Client::SendSoilMoistureMeasurement(size_t sensor_id, double measurement)
 
 bool Client::SendHello()
 {
-  LOG(ERROR) << "bozkurtus -- Client::SendHello() -- call";
-
   Hello hello_msg;
   hello_msg.set_type(ClientType::CONTROL);
   OrganicDumpProtoMessage msg{std::move(hello_msg)};
@@ -232,7 +227,6 @@ bool Client::SendHello()
     return false;
   }
 
-  LOG(ERROR) << "bozkurtus -- Client::SendHello() -- end";
   return true;
 }
 

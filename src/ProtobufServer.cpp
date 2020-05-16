@@ -67,9 +67,6 @@ bool ProtobufServer::Write(OrganicDumpProtoMessage *msg, bool *out_cxn_closed)
 {
   assert(msg);
 
-  LOG(ERROR) << "bozkurtus -- ProtobufServer::Write() -- call";
-  LOG(ERROR) << "bozkurtus -- ProtobufServer::Write() -- msg type: " << ToString(msg->type);
-
   bool cxn_closed = false;
   if (!SendTlsProtobufMessage(
         &cxn_,
@@ -85,7 +82,6 @@ bool ProtobufServer::Write(OrganicDumpProtoMessage *msg, bool *out_cxn_closed)
     *out_cxn_closed = cxn_closed;
   }
 
-  LOG(ERROR) << "bozkurtus -- ProtobufServer::Write() -- end";
   return true;
 }
 
