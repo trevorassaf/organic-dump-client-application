@@ -69,26 +69,31 @@ bool SoilMoistureMonitoringClient::Run()
   size_t consecutive_failed_connections = 0;
   while (true)
   {
-    Client client;
-    if (Client::Create(
-          ipv4_,
-          port_,
-          cert_file_,
-          key_file_,
-          ca_file_,
-          &client))
+    // Encapsulate Client in its own scope so that it gets destroyed before sleeping. It is
+    // potentially harmful to keep the TCP connection alive for an extended period of time
+    // because it produces "address in use" errors on the server.
     {
-      LOG(INFO) << "Successfully connected to server: " << ipv4_ << ":" << port_;
-      consecutive_failed_connections = 0;
+      Client client;
+      if (Client::Create(
+            ipv4_,
+            port_,
+            cert_file_,
+            key_file_,
+            ca_file_,
+            &client))
+      {
+        LOG(INFO) << "Successfully connected to server: " << ipv4_ << ":" << port_;
+        consecutive_failed_connections = 0;
 
-      if (!MonitorSoilMoisture(&client)) {
-        LOG(ERROR) << "Encountered error when monitoring soil moisture. Retrying connection...";
+        if (!MonitorSoilMoisture(&client)) {
+          LOG(ERROR) << "Encountered error when monitoring soil moisture. Retrying connection...";
+        }
       }
-    }
-    else
-    {
-      LOG(ERROR) << "Failed to connect server. Num consecutive failures: "
-                 << ++consecutive_failed_connections;
+      else
+      {
+        LOG(ERROR) << "Failed to connect server. Num consecutive failures: "
+                   << ++consecutive_failed_connections;
+      }
     }
 
     LOG(INFO) << "Sleeping for " << retry_connect_server_period_.count() << " seconds";
