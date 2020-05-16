@@ -1,5 +1,6 @@
 #include "CliConfig.h"
 
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <utility>
@@ -14,6 +15,9 @@ using organicdump_proto::MessageType;
 
 constexpr int UNSET_CLI_INT = -1;
 constexpr double UNSET_CLI_DOUBLE = -1E6;
+constexpr size_t UNSET_MEASUREMENT_PERIOD = 0;
+constexpr size_t DEFAULT_MEASUREMENT_PERIOD = 600;
+constexpr size_t DEFAULT_RETRY_CONNECT_SERVER_PERIOD = 60;
 
 const std::unordered_map<std::string, MessageType> SERVER_ACTION_MAP =
 {
@@ -91,6 +95,11 @@ DEFINE_double(floor, UNSET_CLI_DOUBLE, "Floor of sensor");
 DEFINE_double(ceiling, UNSET_CLI_DOUBLE, "Ceiling of sensor");
 DEFINE_double(measurement, UNSET_CLI_DOUBLE, "Measurement for sensors");
 DEFINE_string(config_file, "", "Config file path");
+DEFINE_uint64(measurement_period, DEFAULT_MEASUREMENT_PERIOD, "Measurement period");
+DEFINE_uint64(
+    retry_connect_server_period,
+    DEFAULT_RETRY_CONNECT_SERVER_PERIOD,
+    "Retry connect server period");
 
 DEFINE_validator(ipv4, CheckNonEmptyString);
 DEFINE_validator(port, FailUnsetCliInt);
@@ -131,7 +140,9 @@ bool CliConfig::Parse(int argc, char **argv, CliConfig *out_config)
       FLAGS_floor,
       FLAGS_ceiling,
       FLAGS_measurement,
-      FLAGS_config_file};
+      FLAGS_config_file,
+      std::chrono::seconds{FLAGS_measurement_period},
+      std::chrono::seconds{FLAGS_retry_connect_server_period}};
 
   return true; 
 }
@@ -153,7 +164,9 @@ CliConfig::CliConfig(
     double floor,
     double ceiling,
     double measurement,
-    std::string config_file)
+    std::string config_file,
+    std::chrono::seconds measurement_period,
+    std::chrono::seconds retry_connect_server_period)
   : ipv4_{std::move(ipv4)},
     port_{port},
     cert_file_{std::move(cert_file)},
@@ -168,8 +181,9 @@ CliConfig::CliConfig(
     floor_{floor},
     ceiling_{ceiling},
     measurement_{measurement},
-    config_file_{std::move(config_file)}
-{}
+    config_file_{std::move(config_file)},
+    measurement_period_{measurement_period},
+    retry_connect_server_period_{retry_connect_server_period} {}
 
 const std::string& CliConfig::GetIpv4() const
 {
@@ -288,5 +302,14 @@ const std::string &CliConfig::GetConfigFile() const
   return config_file_;
 }
 
-}; // namespace organicdump
+std::chrono::seconds CliConfig::GetMeasurementPeriod() const
+{
+  return measurement_period_;
+}
 
+std::chrono::seconds CliConfig::GetRetryConnectServerPeriod() const
+{
+  return retry_connect_server_period_;
+}
+
+}; // namespace organicdump

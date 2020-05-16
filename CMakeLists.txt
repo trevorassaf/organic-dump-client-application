@@ -34,7 +34,8 @@ add_executable(organic_dump_pot_monitor_client
   src/monitor_soil_moisture_main.cpp
   src/Client.cpp
   src/CliConfig.cpp
-  src/ProtobufServer.cpp)
+  src/ProtobufServer.cpp
+  src/SoilMoistureMonitoringClient.cpp)
 
 target_link_libraries(organic_dump_pot_monitor_client gflags::gflags)
 target_link_libraries(organic_dump_pot_monitor_client glog::glog)

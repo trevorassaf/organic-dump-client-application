@@ -33,7 +33,9 @@ public:
       double floor,
       double ceiling,
       double measurement,
-      std::string config_file);
+      std::string config_file,
+      std::chrono::seconds retry_connect_server_period,
+      std::chrono::seconds measurement_period);
 
   const std::string& GetIpv4() const;
   int32_t GetPort() const;
@@ -58,6 +60,8 @@ public:
   double GetMeasurement() const;
   bool HasConfigFile() const;
   const std::string &GetConfigFile() const;
+  std::chrono::seconds GetMeasurementPeriod() const;
+  std::chrono::seconds GetRetryConnectServerPeriod() const;
 
 private:
   std::string ipv4_;
@@ -75,6 +79,8 @@ private:
   double ceiling_;
   double measurement_;
   std::string config_file_;
+  std::chrono::seconds measurement_period_;
+  std::chrono::seconds retry_connect_server_period_;
 };
 
 }; // namespace organicdump

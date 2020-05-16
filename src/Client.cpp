@@ -194,6 +194,9 @@ bool Client::SetPeripheralParent(size_t peripheral_id, size_t rpi_id)
 
 bool Client::SendSoilMoistureMeasurement(size_t sensor_id, double measurement)
 {
+  LOG(INFO) << "Soil Moisture Measurement: sensor_id="
+            << sensor_id << ", measurement=" << measurement;
+
   organicdump_proto::SendSoilMoistureMeasurement req;
   req.set_sensor_id(sensor_id);
   req.set_value(measurement);

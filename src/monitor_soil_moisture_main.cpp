@@ -17,6 +17,7 @@
 
 #include "Client.h"
 #include "CliConfig.h"
+#include "SoilMoistureMonitoringClient.h"
 
 #include "organic_dump.pb.h"
 
@@ -29,21 +30,11 @@
 
 namespace
 {
+using I2c::Ads1115Channel;
 using organicdump::Client;
 using organicdump::CliConfig;
+using organicdump::SoilMoistureMonitoringClient;
 
-using I2c::Ads1115;
-using I2c::Ads1115Channel;
-using I2c::I2cException;
-using I2c::I2cClient;
-using I2c::RpiI2cContext;
-using System::RpiSystemContext;
-
-using organicdump::Client;
-
-const std::chrono::seconds SAMPLE_PERIOD{600};
-
-constexpr size_t I2C_ADC_SLAVE_ID = 0x49;
 constexpr size_t SOIL_MOISTURE_SENSOR_COUNT = 3;
 constexpr const char *RPI_ID_JSON_NAME = "rpi-id";
 constexpr const char *SOIL_MOISTURE_SENSOR_IDS = "soil-moisture-sensor-ids";
@@ -51,43 +42,10 @@ constexpr const char *SOIL_MOISTURE_SENSOR_IDS = "soil-moisture-sensor-ids";
 void InitLibraries(const char *app_name)
 {
   google::InitGoogleLogging(app_name);
-
   SSL_library_init();
   OpenSSL_add_all_algorithms();
   SSL_load_error_strings();
   ERR_load_BIO_strings();
-}
-
-bool MeasureSoilMoisture(
-    Client *client,
-    I2cClient *i2c,
-    const std::unordered_map<Ads1115Channel, size_t> &channel_to_sensor_table)
-{
-  assert(client);
-  assert(i2c);
-
-  Ads1115 ads1115{i2c};
-  uint16_t reading;
-
-  for (const auto &entry : channel_to_sensor_table)
-  {
-    if (!ads1115.Read(entry.first, &reading))
-    {
-      LOG(ERROR) << "Failed to read channel " << static_cast<int>(entry.first);
-      return false;
-    }
-
-    if (!client->SendSoilMoistureMeasurement(
-              entry.second,
-              reading))
-    {
-      LOG(ERROR) << "Failed to upload soil moisture sensor reading for sensor "
-                 << entry.second;
-      return false;
-    }
-  }
-
-  return true;
 }
 
 bool ParseSoilMoistureSensorIds(
@@ -163,34 +121,20 @@ int main(int argc, char **argv)
     {Ads1115Channel::CHANNEL_2, soil_moisture_ids.at(2)},
   };
 
-  Client client;
-  if (!Client::Create(
-          config.GetIpv4(),
-          config.GetPort(),
-          config.GetCertFile(),
-          config.GetKeyFile(),
-          config.GetCaFile(),
-          &client))
+  SoilMoistureMonitoringClient client{
+      config.GetIpv4(),
+      config.GetPort(),
+      config.GetCertFile(),
+      config.GetKeyFile(),
+      config.GetCaFile(),
+      config.GetRetryConnectServerPeriod(),
+      config.GetMeasurementPeriod(),
+      std::move(channel_to_sensor_table)};
+
+  if (!client.Run())
   {
-    LOG(ERROR) << "Failed to create client";
+    LOG(ERROR) << "Encountered failure while running monitoring client";
     return EXIT_FAILURE;
-  }
-
-  RpiSystemContext rpiSystemContext;
-  RpiI2cContext rpiI2cContext{&rpiSystemContext};
-  I2cClient *i2c = rpiI2cContext.GetBus1I2cClient();
-  i2c->SetSlave(I2C_ADC_SLAVE_ID);
-
-  while (true)
-  {
-    uint16_t soil_moisture_reading;
-    if (!MeasureSoilMoisture(&client, i2c, channel_to_sensor_table))
-    {
-      LOG(ERROR) << "Failed to take soil moisture sensor reading";
-      return EXIT_FAILURE;
-    }
-
-    std::this_thread::sleep_for(SAMPLE_PERIOD);
   }
 
   return EXIT_SUCCESS;
