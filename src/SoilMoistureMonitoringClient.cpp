@@ -69,43 +69,22 @@ bool SoilMoistureMonitoringClient::Run()
   size_t consecutive_failed_connections = 0;
   while (true)
   {
-    // Encapsulate Client in its own scope so that it gets destroyed before sleeping. It is
-    // potentially harmful to keep the TCP connection alive for an extended period of time
-    // because it produces "address in use" errors on the server.
+    if (!MonitorSoilMoisture(&consecutive_failed_connections))
     {
-      Client client;
-      if (Client::Create(
-            ipv4_,
-            port_,
-            cert_file_,
-            key_file_,
-            ca_file_,
-            &client))
-      {
-        LOG(INFO) << "Successfully connected to server: " << ipv4_ << ":" << port_;
-        consecutive_failed_connections = 0;
-
-        if (!MonitorSoilMoisture(&client)) {
-          LOG(ERROR) << "Encountered error when monitoring soil moisture. Retrying connection...";
-        }
-      }
-      else
-      {
-        LOG(ERROR) << "Failed to connect server. Num consecutive failures: "
-                   << ++consecutive_failed_connections;
-      }
+      LOG(ERROR) << "Encountered error when monitoring soil moisture";
     }
 
-    LOG(INFO) << "Sleeping for " << retry_connect_server_period_.count() << " seconds";
+    LOG(INFO) << "Retrying server connection in "
+              << retry_connect_server_period_.count() << " seconds";
     std::this_thread::sleep_for(retry_connect_server_period_);
   }
 
   return true;
 }
 
-bool SoilMoistureMonitoringClient::MonitorSoilMoisture(Client *client) {
-  assert(client);
-
+bool SoilMoistureMonitoringClient::MonitorSoilMoisture(
+    size_t *out_consecutive_failed_connections)
+{
   RpiSystemContext rpiSystemContext;
   RpiI2cContext rpiI2cContext{&rpiSystemContext};
   I2cClient *i2c = rpiI2cContext.GetBus1I2cClient();
@@ -114,19 +93,40 @@ bool SoilMoistureMonitoringClient::MonitorSoilMoisture(Client *client) {
 
   while (true)
   {
-    uint16_t soil_moisture_reading;
-    if (!MeasureSoilMoisture(client, i2c))
+    // Destroy client before sleeping so that TCP connection is closed before
+    // the long sleep.
     {
-      LOG(ERROR) << "Failed to take soil moisture sensor reading";
-      return false;
-    }
-    else
-    {
-      LOG(ERROR) << "Num successful soil moisture readings: "
-                 << ++consecutive_successful_readings;
+      Client client;
+      if (!Client::Create(
+            ipv4_,
+            port_,
+            cert_file_,
+            key_file_,
+            ca_file_,
+            &client))
+      {
+        LOG(ERROR) << "Failed to connect server: " << ipv4_ << ":" << port_;
+        ++*out_consecutive_failed_connections;
+        return false;
+      }
+
+      LOG(INFO) << "Successfully connected to server: " << ipv4_ << ":" << port_;
+      *out_consecutive_failed_connections = 0;
+
+      if (!MeasureSoilMoisture(&client, i2c))
+      {
+        LOG(ERROR) << "Failed to take soil moisture sensor reading";
+        return false;
+      }
+      else
+      {
+        LOG(ERROR) << "Num successful soil moisture readings: "
+                   << ++consecutive_successful_readings;
+      }
     }
 
-    LOG(INFO) << "Sleeping for " << measurement_period_.count() << " seconds";
+    LOG(INFO) << "Sleeping for " << measurement_period_.count()
+              << " seconds before taking next soil moisture reading";
     std::this_thread::sleep_for(measurement_period_);
   }
 

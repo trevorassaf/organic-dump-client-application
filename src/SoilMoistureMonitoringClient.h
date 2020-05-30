@@ -34,7 +34,7 @@ public:
   bool Run();
 
 private:
-  bool MonitorSoilMoisture(Client *client);
+  bool MonitorSoilMoisture(size_t *out_consecutive_failed_connections);
   bool MeasureSoilMoisture(Client *client, I2c::I2cClient *i2c);
   void StealResources(SoilMoistureMonitoringClient *other);
 
